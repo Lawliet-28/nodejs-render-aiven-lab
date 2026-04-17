@@ -11,12 +11,15 @@ app.use(bodyParser.urlencoded({ extended: false }));
 require("dotenv").config();
 
 // database connection (Aiven safe)
-const db = mysql.createConnection({
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT),
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
   ssl: {
     rejectUnauthorized: false
   }
@@ -264,4 +267,4 @@ app.get("/delete/:id", (req, res) => {
 // START SERVER
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
-});
+}); 
