@@ -8,12 +8,14 @@ const PORT = 3000;
 app.use(bodyParser.urlencoded({ extended: false }));
 
 // database connection
+require("dotenv").config();
+
 const db = mysql.createConnection({
-  host: "your_hostname",
-  user: "your_username",
-  password: "your_password",
-  database: "aiven_database",
-  port: 23687
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
 });
 
 db.connect(err => {
