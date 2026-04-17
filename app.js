@@ -1,16 +1,14 @@
 const express = require("express");
 const mysql = require("mysql2");
-const bodyParser = require("body-parser");
+
+require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false }));
 
-// load env
-require("dotenv").config();
-
-// database connection (Aiven safe)
+// MySQL pool
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -25,12 +23,12 @@ const db = mysql.createPool({
   }
 });
 
-// connect DB
-db.connect(err => {
-  if (err) {
-    console.log("Database connection failed:", err.message);
-  } else {
+// test connection
+db.getConnection((err, conn) => {
+  if (err) console.log("DB ERROR:", err.message);
+  else {
     console.log("Connected to MySQL (Aiven)");
+    conn.release();
   }
 });
 
@@ -42,11 +40,7 @@ app.get("/", (req, res) => {
 
     if (err) {
       console.log("Query error:", err);
-      return res.send("<h1>Database connection/query failed</h1>");
-    }
-
-    if (!results || !Array.isArray(results)) {
-      return res.send("<h1>No data found</h1>");
+      return res.send("<h1>Database query failed</h1>");
     }
 
     let html = `
@@ -55,11 +49,13 @@ app.get("/", (req, res) => {
 <title>Student System</title>
 
 <style>
+
 body {
   font-family: Arial;
   margin: 0;
   background: #f0f2f5;
 }
+
 .header {
   background: #1877f2;
   color: white;
@@ -67,11 +63,13 @@ body {
   font-size: 22px;
   font-weight: bold;
 }
+
 .container {
   width: 70%;
   margin: auto;
   margin-top: 30px;
 }
+
 .card {
   background: white;
   padding: 20px;
@@ -79,6 +77,7 @@ body {
   border-radius: 10px;
   box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
 }
+
 input {
   padding: 10px;
   width: 95%;
@@ -87,6 +86,7 @@ input {
   border-radius: 6px;
   border: 1px solid #ddd;
 }
+
 button {
   background: #1877f2;
   color: white;
@@ -95,20 +95,25 @@ button {
   border-radius: 6px;
   cursor: pointer;
 }
+
 button:hover {
   background: #166fe5;
 }
+
 .student {
   border-bottom: 1px solid #ddd;
   padding: 10px 0;
 }
+
 .actions a {
   text-decoration: none;
   margin-right: 10px;
   font-weight: bold;
 }
+
 .edit { color: #1877f2; }
 .delete { color: red; }
+
 </style>
 
 </head>
@@ -185,40 +190,37 @@ app.post("/add", (req, res) => {
 });
 
 
-// EDIT PAGE
+// EDIT
 app.get("/edit/:id", (req, res) => {
 
   const id = req.params.id;
 
   db.query(
-    "SELECT * FROM students WHERE stud_id = ?",
+    "SELECT * FROM students WHERE stud_id=?",
     [id],
     (err, results) => {
 
-      if (err || !results || results.length === 0) {
+      if (err || results.length === 0) {
         return res.send("Student not found");
       }
 
-      const student = results[0];
+      const s = results[0];
 
       res.send(`
 <html>
-<body>
+<body style="font-family: Arial; background:#f0f2f5;">
 
+<div style="background:white; width:40%; margin:auto; margin-top:80px; padding:25px; border-radius:10px;">
 <h2>Edit Student</h2>
 
 <form method="POST" action="/update/${id}">
-Name:
-<input name="stud_name" value="${student.stud_name}">
-
-Address:
-<input name="stud_address" value="${student.stud_address}">
-
-Age:
-<input name="age" value="${student.age}">
-
+<input name="stud_name" value="${s.stud_name}">
+<input name="stud_address" value="${s.stud_address}">
+<input name="age" value="${s.age}">
 <button>Update</button>
 </form>
+
+</div>
 
 </body>
 </html>
@@ -267,4 +269,4 @@ app.get("/delete/:id", (req, res) => {
 // START SERVER
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
-}); 
+});
