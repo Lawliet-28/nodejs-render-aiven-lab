@@ -7,9 +7,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// database connection
+// load env
 require("dotenv").config();
 
+// database connection (Aiven safe)
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -21,9 +22,13 @@ const db = mysql.createConnection({
   }
 });
 
+// connect DB
 db.connect(err => {
-  if (err) console.log("Database connection failed");
-  else console.log("Connected to MySQL");
+  if (err) {
+    console.log("Database connection failed:", err.message);
+  } else {
+    console.log("Connected to MySQL (Aiven)");
+  }
 });
 
 
@@ -32,23 +37,26 @@ app.get("/", (req, res) => {
 
   db.query("SELECT * FROM students", (err, results) => {
 
+    if (err) {
+      console.log("Query error:", err);
+      return res.send("<h1>Database connection/query failed</h1>");
+    }
+
+    if (!results || !Array.isArray(results)) {
+      return res.send("<h1>No data found</h1>");
+    }
+
     let html = `
 <html>
-
 <head>
-
 <title>Student System</title>
 
 <style>
-
 body {
   font-family: Arial;
   margin: 0;
   background: #f0f2f5;
 }
-
-/* Facebook-style header */
-
 .header {
   background: #1877f2;
   color: white;
@@ -56,17 +64,11 @@ body {
   font-size: 22px;
   font-weight: bold;
 }
-
-/* container */
-
 .container {
   width: 70%;
   margin: auto;
   margin-top: 30px;
 }
-
-/* card layout */
-
 .card {
   background: white;
   padding: 20px;
@@ -74,9 +76,6 @@ body {
   border-radius: 10px;
   box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
 }
-
-/* input fields */
-
 input {
   padding: 10px;
   width: 95%;
@@ -85,9 +84,6 @@ input {
   border-radius: 6px;
   border: 1px solid #ddd;
 }
-
-/* buttons */
-
 button {
   background: #1877f2;
   color: white;
@@ -96,50 +92,34 @@ button {
   border-radius: 6px;
   cursor: pointer;
 }
-
 button:hover {
   background: #166fe5;
 }
-
-/* student card */
-
 .student {
   border-bottom: 1px solid #ddd;
   padding: 10px 0;
 }
-
 .actions a {
   text-decoration: none;
   margin-right: 10px;
   font-weight: bold;
 }
-
-.edit {
-  color: #1877f2;
-}
-
-.delete {
-  color: red;
-}
-
+.edit { color: #1877f2; }
+.delete { color: red; }
 </style>
 
 </head>
 
 <body>
 
-<div class="header">
-Student CRUD Dashboard
-</div>
+<div class="header">Student CRUD Dashboard</div>
 
 <div class="container">
 
 <div class="card">
-
 <h2>Add Student</h2>
 
 <form method="POST" action="/add">
-
 Name:
 <input name="stud_name" required>
 
@@ -150,53 +130,36 @@ Age:
 <input name="age" required>
 
 <button>Add Student</button>
-
 </form>
-
 </div>
 
-
 <div class="card">
-
 <h2>Student List</h2>
 `;
 
     results.forEach(student => {
-
       html += `
 <div class="student">
-
 <b>${student.stud_name}</b><br>
-
 Address: ${student.stud_address}<br>
-
 Age: ${student.age}
 
 <div class="actions">
-
 <a class="edit" href="/edit/${student.stud_id}">Edit</a>
-
-<a class="delete" href="/delete/${student.stud_id}">
-Delete
-</a>
-
+<a class="delete" href="/delete/${student.stud_id}">Delete</a>
 </div>
-
 </div>
 `;
     });
 
     html += `
-
 </div>
 </div>
-
 </body>
 </html>
 `;
 
     res.send(html);
-
   });
 
 });
@@ -210,7 +173,10 @@ app.post("/add", (req, res) => {
   db.query(
     "INSERT INTO students (stud_name, stud_address, age) VALUES (?, ?, ?)",
     [stud_name, stud_address, age],
-    () => res.redirect("/")
+    (err) => {
+      if (err) console.log("Insert error:", err);
+      res.redirect("/");
+    }
   );
 
 });
@@ -226,51 +192,19 @@ app.get("/edit/:id", (req, res) => {
     [id],
     (err, results) => {
 
+      if (err || !results || results.length === 0) {
+        return res.send("Student not found");
+      }
+
       const student = results[0];
 
       res.send(`
-
 <html>
-
-<style>
-
-body {
-  font-family: Arial;
-  background: #f0f2f5;
-}
-
-.card {
-  background: white;
-  width: 40%;
-  margin: auto;
-  margin-top: 80px;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
-}
-
-input {
-  width: 95%;
-  padding: 10px;
-  margin-top: 10px;
-}
-
-button {
-  background: #1877f2;
-  color: white;
-  border: none;
-  padding: 10px;
-  margin-top: 10px;
-}
-
-</style>
-
-<div class="card">
+<body>
 
 <h2>Edit Student</h2>
 
 <form method="POST" action="/update/${id}">
-
 Name:
 <input name="stud_name" value="${student.stud_name}">
 
@@ -281,14 +215,11 @@ Age:
 <input name="age" value="${student.age}">
 
 <button>Update</button>
-
 </form>
 
-</div>
-
+</body>
 </html>
 `);
-
     }
   );
 
@@ -304,7 +235,10 @@ app.post("/update/:id", (req, res) => {
   db.query(
     "UPDATE students SET stud_name=?, stud_address=?, age=? WHERE stud_id=?",
     [stud_name, stud_address, age, id],
-    () => res.redirect("/")
+    (err) => {
+      if (err) console.log("Update error:", err);
+      res.redirect("/");
+    }
   );
 
 });
@@ -318,7 +252,10 @@ app.get("/delete/:id", (req, res) => {
   db.query(
     "DELETE FROM students WHERE stud_id=?",
     [id],
-    () => res.redirect("/")
+    (err) => {
+      if (err) console.log("Delete error:", err);
+      res.redirect("/");
+    }
   );
 
 });
@@ -326,5 +263,5 @@ app.get("/delete/:id", (req, res) => {
 
 // START SERVER
 app.listen(PORT, () => {
-  console.log("Server running on port 3000");
+  console.log("Server running on port " + PORT);
 });
