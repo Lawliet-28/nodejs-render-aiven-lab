@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {  
+  "scripts": {
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/Lawliet-28/nodejs-render-aiven-lab#readme",
   "dependencies": {
-    "dotenv": "^latest-version",
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "mysql2": "^3.22.1"
   }
